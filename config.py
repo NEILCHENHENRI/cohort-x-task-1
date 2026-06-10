@@ -52,36 +52,6 @@ AGE_QUESTIONS = {
 }
 
 # ---------------------------------------------------------------------------
-# Regex patterns for sex and age
-# ---------------------------------------------------------------------------
-
-SEX_PATTERNS = [
-    (r"\b(male and female|both sexes|all sexes|males and females)\b", "ALL"),
-    (r"\b(men and women|women and men)\b",                            "ALL"),
-    (r"\bmale[s]?\b(?!\s+and\s+female)",                              "MALE"),
-    (r"\bfemale[s]?\b(?!\s+and\s+male)",                              "FEMALE"),
-    (r"\bwomen\b",                                                     "FEMALE"),
-    (r"\bmen\b(?!\s+and\s+women)",                                    "MALE"),
-]
-
-AGE_PATTERNS = {
-    "minimum": [
-        r"(?:aged?|age[d]?\s+(?:between|from|of|≥|>=|>|at\s+least))[\s:]*(\d+(?:\.\d+)?)\s*(?:to|-|–)?\s*(?:years?(?:\s+old)?|yrs?)",
-        r"(?:≥|>=|>|at\s+least|minimum\s+age[\s:of]*)\s*(\d+(?:\.\d+)?)\s*(?:years?(?:\s+old)?|yrs?)",
-        r"(\d+(?:\.\d+)?)\s*(?:years?(?:\s+old)?|yrs?)\s*(?:or\s+(?:older|above|over)|and\s+(?:older|above|over))",
-        r"minimum\s+age[\s:of]*(\d+(?:\.\d+)?)",
-        r"aged?\s+(\d+)\s*[-–]\s*\d+",
-    ],
-    "maximum": [
-        r"(?:aged?\s+(?:between|from)\s+\d+\s*(?:to|-|–)\s*)(\d+(?:\.\d+)?)\s*(?:years?(?:\s+old)?|yrs?)",
-        r"(?:≤|<=|<|up\s+to|at\s+most|maximum\s+age[\s:of]*)\s*(\d+(?:\.\d+)?)\s*(?:years?(?:\s+old)?|yrs?)",
-        r"(\d+(?:\.\d+)?)\s*(?:years?(?:\s+old)?|yrs?)\s*(?:or\s+(?:younger|below|under)|and\s+(?:younger|below|under))",
-        r"maximum\s+age[\s:of]*(\d+(?:\.\d+)?)",
-        r"aged?\s+\d+\s*[-–]\s*(\d+)",
-    ],
-}
-
-# ---------------------------------------------------------------------------
 # Evaluation metric constants
 # ---------------------------------------------------------------------------
 

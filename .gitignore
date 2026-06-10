@@ -8,3 +8,4 @@ __pycache__/
 .env
 submission*.xlsx
 train_preds*.xlsx
+.DS_Store
