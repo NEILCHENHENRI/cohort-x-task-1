@@ -1,0 +1,10 @@
+models/
+data/
+*.xlsx
+*.joblib
+__pycache__/
+.ipynb_checkpoints/
+*.pyc
+.env
+submission*.xlsx
+train_preds*.xlsx
