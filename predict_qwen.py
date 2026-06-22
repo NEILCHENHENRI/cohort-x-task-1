@@ -92,21 +92,20 @@ def build_prompt(parsed: dict) -> str:
         f"Relevant sections:\n{body}"
     )
 
-    return (
-        "You are a biomedical information extraction system. "
-        "Read the following article and extract the requested fields.\n\n"
-        f"Article:\n{article}\n\n"
-        "Return ONLY valid JSON with these exact fields, no other text:\n"
-        "{\n"
-        '  "conditions": ["primary medical conditions studied"],\n'
-        '  "study_type": "INTERVENTIONAL or OBSERVATIONAL",\n'
-        '  "sex": "ALL or MALE or FEMALE",\n'
-        '  "minimum_age": "number followed by Years e.g. 18 Years",\n'
-        '  "maximum_age": "number followed by Years e.g. 65 Years",\n'
-        '  "eligibility_criteria": "full inclusion and exclusion criteria text"\n'
-        "}\n"
-        "If a field cannot be determined, use null."
-    )
+    return f"""You are a biomedical information extraction system. Read the following article and extract the requested fields.
+
+Article:
+{article}
+
+Extract the following fields and return ONLY valid JSON, no other text:
+{{
+  "conditions": ["list of primary medical conditions studied"],
+  "study_type": "INTERVENTIONAL or OBSERVATIONAL",
+  "sex": "ALL or MALE or FEMALE",
+  "minimum_age": "<minimum age with unit, or Not Specified in some very rare cases",
+  "maximum_age": "<maximum age with unit, or Not Specified in a few cases"
+  "eligibility_criteria": "Inclusion Criteria: [criteria, each prefixed with *]; Exclusion Criteria: [criteria, each prefixed with *]"
+}}"""
 
 
 # ---------------------------------------------------------------------------
