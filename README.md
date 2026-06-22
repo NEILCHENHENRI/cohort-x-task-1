@@ -11,6 +11,7 @@ models.py           all training components and CohortXPipeline
 evaluate.py         competition metrics (number sim, BioBERT cosine, FM3S)
 train.py            CLI entry point for training
 predict_ollama.py   local inference via Ollama (Qwen 1.5B default)
+predict_qwen.py     local/Colab inference via Transformers (Qwen3-4B, 8-bit)
 explore.ipynb       NXML exploration and failure analysis
 ```
 
@@ -41,7 +42,20 @@ python train.py \
 **Ollama (local, Qwen 1.5B):**
 ```bash
 ollama pull qwen2.5:1.5b
-python predict_ollama.py --data_dir /path/to/data --nxml_dir /path/to/nxml --test
+python predict_ollama.py \
+	--data_dir /path/to/data
+	--nxml_dir /path/to/nxml
+	--test
+```
+
+**Transformers (Qwen3-4B, 8-bit):**
+
+```bash
+pip install accelerate bitsandbytes
+python predict_qwen.py \
+  --data_dir /path/to/data \
+  --nxml_dir /path/to/PMC_NXML_Archives \
+  --test
 ```
 
 ## Evaluation
