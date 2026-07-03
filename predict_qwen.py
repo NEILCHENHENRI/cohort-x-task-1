@@ -81,7 +81,7 @@ def get_relevant_sections(parsed: dict) -> str:
 
 def build_prompt(parsed: dict) -> str:
     title = parsed.get("title", "")
-    abstract = parsed.get("abstract", "")[:600]
+    abstract = parsed.get("abstract", "")
     keywords = ", ".join(parsed.get("keywords", []))
     body = get_relevant_sections(parsed)
 
