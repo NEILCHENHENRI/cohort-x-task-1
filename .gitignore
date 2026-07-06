@@ -1,5 +1,7 @@
 models/
 data/
+.venv/
+venv/
 *.xlsx
 *.joblib
 __pycache__/
@@ -9,3 +11,7 @@ __pycache__/
 submission*.xlsx
 train_preds*.xlsx
 .DS_Store
+
+# GEPA dev-time caches / large dumps (results JSON + findings are kept)
+results/contexts.pkl
+results/*.preds.csv

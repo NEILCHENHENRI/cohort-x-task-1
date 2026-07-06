@@ -32,3 +32,8 @@ ollama>=0.3.0          # local inference via Ollama server
 openai>=1.0.0          # GPT-4o-mini inference
 anthropic>=0.25.0      # Claude inference
 bitsandbytes>=0.43.0   # 4-bit quantization for large models on GPU
+
+# ── GEPA prompt optimization (DEV-TIME ONLY — not on the offline inference path) ─
+dspy>=3.2.0            # GEPA optimizer + DSPy program/metric
+python-dotenv>=1.0.0   # load ANTHROPIC_API_KEY from .env (optimize_gepa.py)
+kagglehub>=0.3.0       # download the competition dataset (download_data.py)

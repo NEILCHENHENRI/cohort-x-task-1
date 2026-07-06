@@ -77,28 +77,60 @@ def get_relevant_sections(parsed: dict) -> str:
 # Prompt
 # ---------------------------------------------------------------------------
 
-def build_prompt(parsed: dict) -> str:
+# The INPUT half: MiniLM-filtered article context. This is fixed — GEPA never
+# touches it. Returns ONLY the article text (no instruction, no "Article:" label).
+def build_article_context(parsed: dict) -> str:
     title    = parsed.get("title", "")
     abstract = parsed.get("abstract", "")[:600]
     keywords = ", ".join(parsed.get("keywords", []))
     body     = get_relevant_sections(parsed)
-    article  = f"Title: {title}\n\nAbstract: {abstract}\n\nKeywords: {keywords}\n\nRelevant sections:\n{body}"
+    return f"Title: {title}\n\nAbstract: {abstract}\n\nKeywords: {keywords}\n\nRelevant sections:\n{body}"
 
-    return (
-        "You are a biomedical information extraction system. "
-        "Read the following article and extract the requested fields.\n\n"
-        f"Article:\n{article}\n\n"
-        "Return ONLY valid JSON with these exact fields, no other text:\n"
-        "{\n"
-        '  "conditions": ["primary medical conditions studied"],\n'
-        '  "study_type": "INTERVENTIONAL or OBSERVATIONAL",\n'
-        '  "sex": "ALL or MALE or FEMALE",\n'
-        '  "minimum_age": "number followed by Years e.g. 18 Years",\n'
-        '  "maximum_age": "number followed by Years e.g. 65 Years",\n'
-        '  "eligibility_criteria": "full inclusion and exclusion criteria text"\n'
-        "}\n"
-        "If a field cannot be determined, use null."
-    )
+
+# The INSTRUCTION half: the only thing GEPA rewrites. Split in two so paste-back
+# only swaps the prose:
+#   - INSTRUCTION_PROSE: natural-language guidance GEPA optimizes (and that seeds
+#     the DSPy signature docstring). <<< Phase 6 replaces THIS with GEPA's output.
+#   - OUTPUT_SCHEMA: the fixed JSON-format scaffold for this Ollama path (the DSPy
+#     program uses its own adapter for formatting, so the scaffold is path-specific).
+INSTRUCTION_PROSE = (
+    "You are a biomedical information extraction system. "
+    "Read the following article and extract the requested fields."
+)
+
+OUTPUT_SCHEMA = (
+    "Return ONLY valid JSON with these exact fields, no other text:\n"
+    "{\n"
+    '  "conditions": ["primary medical conditions studied"],\n'
+    '  "study_type": "INTERVENTIONAL or OBSERVATIONAL",\n'
+    '  "sex": "ALL or MALE or FEMALE",\n'
+    '  "minimum_age": "number followed by Years e.g. 18 Years",\n'
+    '  "maximum_age": "number followed by Years e.g. 65 Years",\n'
+    '  "eligibility_criteria": "full inclusion and exclusion criteria text"\n'
+    "}\n"
+    "If a field cannot be determined, use null."
+)
+
+INSTRUCTION = f"{INSTRUCTION_PROSE}\n\n{OUTPUT_SCHEMA}"
+
+
+def build_prompt(parsed: dict) -> str:
+    return f"{INSTRUCTION}\n\nArticle:\n{build_article_context(parsed)}"
+
+
+def parse_json_response(raw: str) -> dict:
+    """Lenient JSON extraction shared by the Ollama path and the DSPy program."""
+    raw = raw.strip()
+    raw = re.sub(r"[\x00-\x1f\x7f](?<![\n\t])", "", raw)
+    raw = re.sub(r"\n\s*", " ", raw)
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        match = re.search(r"\{.*\}", raw, re.DOTALL)
+        try:
+            return json.loads(match.group()) if match else {}
+        except Exception:
+            return {}
 
 
 # ---------------------------------------------------------------------------
@@ -114,19 +146,8 @@ def extract(pid: str, parsed: dict, model: str) -> dict:
             model=model,
             messages=[{"role": "user", "content": build_prompt(parsed)}],
             options={"temperature": 0.0, "num_predict": 512},
-            timeout=120,
         )
-        raw = response["message"]["content"].strip()
-        raw = re.sub(r"[\x00-\x1f\x7f](?<![\n\t])", "", raw)
-        raw = re.sub(r"\n\s*", " ", raw)
-        try:
-            return json.loads(raw)
-        except json.JSONDecodeError:
-            match = re.search(r"\{.*\}", raw, re.DOTALL)
-            try:
-                return json.loads(match.group()) if match else {}
-            except Exception:
-                return {}
+        return parse_json_response(response["message"]["content"])
     except Exception as e:
         print(f"\nError on PMC{pid}: {e}")
         return {}

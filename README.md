@@ -5,15 +5,28 @@ Extracts 6 structured fields from PMC biomedical articles: `conditions`, `study_
 ## Structure
 
 ```
-config.py           constants (model names, queries, metric weights)
-parser.py           NXMLParser — parses PMC JATS/NXML to structured dicts
-models.py           all training components and CohortXPipeline
-evaluate.py         competition metrics (number sim, BioBERT cosine, FM3S)
-train.py            CLI entry point for training
-predict_ollama.py   local inference via Ollama (Qwen 1.5B default)
-predict_qwen.py     local/Colab inference via Transformers (Qwen3-4B, 8-bit)
-explore.ipynb       NXML exploration and failure analysis
+config.py                 constants (model names, queries, metric weights)
+parser.py                 NXMLParser — parses PMC JATS/NXML to structured dicts
+models.py                 all training components and CohortXPipeline (Path A)
+evaluate.py               competition metrics (number sim, BioBERT cosine, FM3S)
+train.py                  CLI entry point for training (Path A)
+predict_ollama.py         LIVE offline inference via Ollama (Qwen 1.5B) — Path B
+predict_qwen.py           local/Colab inference via Transformers (Qwen3-4B, 8-bit)
+explore.ipynb             NXML exploration and failure analysis
+
+# ── GEPA prompt optimization (dev-time) ──────────────────────────────
+download_data.py          fetch competition data via kagglehub
+data_split.py             deterministic train/val/holdout split (results/splits.json)
+dspy_program.py           DSPy signature + program + GEPA metric (field-specific feedback)
+optimize_gepa.py          run GEPA (Claude reflection) -> optimized instruction
+run_eval.py               score the offline path (baseline / optimized) on a split
+scenario_test.py          qualitative pred-vs-gold inspection on sample papers
+cohortx_gepa_colab.ipynb  end-to-end GPU-aware notebook for demos
 ```
+
+Two solution paths live in this repo: **Path A** (fine-tuned specialist chain:
+`train.py`, `models.py`, `predict.py`) and **Path B** (the live single-model generative
+pipeline: `predict_ollama.py`). The GEPA work optimizes **Path B only**.
 
 ## Setup
 
@@ -57,6 +70,30 @@ python predict_qwen.py \
   --nxml_dir /path/to/PMC_NXML_Archives \
   --test
 ```
+
+## GEPA Prompt Optimization (Path B)
+
+GEPA (DSPy's reflective optimizer) rewrites the Path-B **instruction** using a strong
+**Claude** reflection model at *dev time*, then ships the single optimized instruction
+into the **offline** Ollama path. The reflection model is never on the inference path.
+
+```bash
+python download_data.py                                              # data via kagglehub
+python run_eval.py --split holdout --output results/baseline.json    # "before"
+python optimize_gepa.py --max_metric_calls 150                       # GEPA (needs .env key)
+python run_eval.py --split holdout \
+    --instruction_file results/optimized_instruction.txt \
+    --output results/optimized.json                                  # "after"
+```
+
+`.env` (gitignored) holds `ANTHROPIC_API_KEY`. To **ship** an optimized prompt, paste
+`results/optimized_instruction.txt` into `predict_ollama.py`'s `INSTRUCTION_PROSE`.
+Full write-up in [results/findings.md](results/findings.md).
+
+**Result (held-out n=60):** composite **0.629 → 0.686 (+0.057, +9% rel)** for **$0.13**.
+Big wins on `conditions` (+0.29) and `eligibility_criteria` (+0.06, the 50%-weight
+field); `minimum_age` regressed (a metric artifact — gold ages come from
+ClinicalTrials.gov, so honest "Not Specified" scores 0 against a gold of "18 Years").
 
 ## Evaluation
 

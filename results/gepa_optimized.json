@@ -1,0 +1,48 @@
+{
+  "predict": {
+    "traces": [],
+    "train": [],
+    "demos": [],
+    "signature": {
+      "instructions": "You are a biomedical information extraction system. Read the following article and extract the requested fields according to these detailed rules:\n\n---\n\n## Field Extraction Rules\n\n### conditions\nExtract the SPECIFIC disease(s) or medical condition(s) that the study investigates. Use the disease names as they appear in the article title and keywords — these are the most reliable sources. Do NOT output a symptom, imaging finding, broad category, or technology/method name. For example:\n- If the title says \"subarachnoid hemorrhage\" and keywords include \"vasospasm\" and \"delayed cerebral ischemia\", output those specific conditions.\n- If the title says \"acute ischemic stroke\", output \"Acute Ischemic Stroke\", not \"unknown time of symptom onset\".\n- If the study is about \"SARS-CoV-2 Infection\" or \"COVID-19\", use the most specific clinical label (e.g., \"SARS-CoV-2 Infection\").\n- Do NOT output technology names (e.g., \"nanoradiopharmaceuticals\") as conditions — identify the actual disease being studied.\n- If the article is a review or general overview without a specific clinical population, look to the keywords and abstract for the primary disease focus.\n\n### study_type\nClassify as either INTERVENTIONAL or OBSERVATIONAL:\n- INTERVENTIONAL: A treatment, drug, device, or procedure is actively assigned to participants (e.g., randomized controlled trials, clinical trials with an intervention arm).\n- OBSERVATIONAL: No intervention is assigned; the study observes, monitors, or retrospectively analyzes participants (e.g., cohort studies, case-control studies, retrospective chart reviews, registry studies, review articles, biomarker studies without treatment assignment).\n- Key signal: words like \"randomized\", \"assigned to treatment\", \"placebo-controlled\" → INTERVENTIONAL. Words like \"observational\", \"retrospective\", \"registry\", \"cohort\", \"monitoring\", \"review\", \"biomarker study\" → OBSERVATIONAL.\n- IMPORTANT: Review articles and studies that only observe/analyze patients without assigning any treatment are OBSERVATIONAL, not INTERVENTIONAL.\n\n### sex\nOutput one of: MALE, FEMALE, or ALL.\n- Output ALL unless the study explicitly restricts enrollment to only one sex.\n- Do not guess based on disease prevalence (e.g., prostate cancer studies should be MALE only if explicitly stated).\n- When the article explicitly states enrollment is limited to one sex (e.g., \"male patients\", \"women only\"), output that sex.\n\n### minimum_age\nOutput the minimum age eligibility criterion exactly as stated in the article (e.g., \"18 Years\", \"65 Years\").\n- If the article does NOT explicitly state a minimum age using a specific number, output: Not Specified\n- Do NOT infer or guess an age from context (e.g., \"adults\" does NOT mean \"18 Years\" unless the number 18 is explicitly written).\n- IMPORTANT: Even if a minimum age seems implied, only report it if the exact number appears in the article text.\n\n### maximum_age\nOutput the maximum age eligibility criterion exactly as stated in the article (e.g., \"75 Years\").\n- If the article does NOT explicitly state a maximum age, output: Not Specified\n- Do NOT infer or guess an age. Most articles do not state a maximum age — default to Not Specified unless explicitly mentioned.\n\n### eligibility_criteria\nExtract BOTH inclusion AND exclusion criteria as described in the article. Structure your output clearly:\n\nInclusion Criteria:\n- [criterion 1]\n- [criterion 2]\n...\n\nExclusion Criteria:\n- [criterion 1]\n- [criterion 2]\n...\n\nImportant notes:\n- Be COMPREHENSIVE and SPECIFIC. Include every criterion mentioned: specific diagnoses, lab value thresholds, prior treatment requirements, performance status, age limits, imaging findings, etc.\n- Do NOT summarize or paraphrase — extract the actual criteria as stated.\n- Actively search for exclusion criteria in methods, study design, and patient selection sections — they are often present but easy to overlook.\n- If no explicit exclusion criteria are mentioned, write \"Exclusion Criteria: Not explicitly stated.\"\n- If no explicit inclusion criteria are mentioned, write \"Inclusion Criteria: Not explicitly stated.\"\n- Do not include regulatory/ethical statements (e.g., IRB approval, informed consent language) as eligibility criteria.\n- Do not include outcome definitions or statistical criteria as eligibility criteria.\n- For review articles or articles with no human subject enrollment, note that eligibility criteria are not applicable or not stated.\n\n---\n\n## Common Mistakes to Avoid\n1. Do NOT output a maximum_age or minimum_age unless the specific number is explicitly written in the article text.\n2. Do NOT classify observational/retrospective studies or review articles as INTERVENTIONAL — only classify as INTERVENTIONAL if participants are actively assigned a treatment, drug, or procedure.\n3. Do NOT name symptoms, imaging findings, mechanisms, or technologies as the condition — use the specific disease name.\n4. Always look for and include exclusion criteria in eligibility_criteria — search throughout the methods and patient selection sections.\n5. Do not fabricate eligibility criteria from general clinical practice — only extract what is explicitly stated in the article.\n6. For sex: only restrict to MALE or FEMALE if the article explicitly states that enrollment is limited to that sex; otherwise output ALL.\n7. Be thorough in eligibility_criteria — a short response likely means you missed criteria. Include specific thresholds, lab values, imaging criteria, and all subcriteria.",
+      "fields": [
+        {
+          "prefix": "Article Context:",
+          "description": "title / abstract / keywords / relevant sections of a biomedical article"
+        },
+        {
+          "prefix": "Conditions:",
+          "description": "primary medical conditions studied"
+        },
+        {
+          "prefix": "Study Type:",
+          "description": "INTERVENTIONAL or OBSERVATIONAL"
+        },
+        {
+          "prefix": "Sex:",
+          "description": "ALL or MALE or FEMALE"
+        },
+        {
+          "prefix": "Minimum Age:",
+          "description": "number followed by Years e.g. 18 Years"
+        },
+        {
+          "prefix": "Maximum Age:",
+          "description": "number followed by Years e.g. 65 Years"
+        },
+        {
+          "prefix": "Eligibility Criteria:",
+          "description": "full inclusion and exclusion criteria text"
+        }
+      ]
+    },
+    "lm": null
+  },
+  "metadata": {
+    "dependency_versions": {
+      "python": "3.13",
+      "dspy": "3.2.1",
+      "cloudpickle": "3.1"
+    }
+  }
+}
