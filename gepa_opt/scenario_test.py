@@ -6,9 +6,9 @@ right or wrong. This prints a side-by-side prediction-vs-gold view per paper, wi
 the per-field score, so you can eyeball whether the optimized system behaves well
 (e.g. does it actually stop hallucinating ages? does it capture exclusion criteria?).
 
-  python scenario_test.py                       # optimized instruction, 5 holdout papers
-  python scenario_test.py --baseline            # current hand-written prompt
-  python scenario_test.py --n 8 --split val
+  python -m gepa_opt.scenario_test                       # optimized instruction, 5 holdout papers
+  python -m gepa_opt.scenario_test --baseline            # current hand-written prompt
+  python -m gepa_opt.scenario_test --n 8 --split val
 
 Reads the optimized instruction from results/optimized_instruction.txt (Phase 5 output)
 unless --baseline is given.
@@ -18,10 +18,10 @@ import argparse
 import textwrap
 from pathlib import Path
 
-import predict_ollama
-from data_split import FIELDS, get_splits, gold_dict, load_sheet, nxml_path
-from evaluate import score_row
-from parser import NXMLParser
+from local_llm import predict_ollama
+from gepa_opt.data_split import FIELDS, get_splits, gold_dict, load_sheet, nxml_path
+from common.evaluate import score_row
+from common.parser import NXMLParser
 
 OPT_FILE = Path("results/optimized_instruction.txt")
 

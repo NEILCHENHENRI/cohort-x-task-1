@@ -1,5 +1,6 @@
 models/
-data/
+data/*
+!data/download_data.py
 .venv/
 venv/
 *.xlsx

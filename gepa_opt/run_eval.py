@@ -9,7 +9,7 @@ The only thing that differs between the two runs is predict_ollama.INSTRUCTION,
 so this gives an honest, apples-to-apples before/after on the real shipped path.
 
 Usage:
-  python run_eval.py --split holdout --output results/baseline.json
+  python -m gepa_opt.run_eval --split holdout --output results/baseline.json
 """
 
 import argparse
@@ -20,10 +20,10 @@ from pathlib import Path
 import pandas as pd
 from tqdm import tqdm
 
-import predict_ollama
-from data_split import FIELDS, gold_dict, get_splits, load_sheet, nxml_path
-from evaluate import score_row
-from parser import NXMLParser
+from local_llm import predict_ollama
+from gepa_opt.data_split import FIELDS, gold_dict, get_splits, load_sheet, nxml_path
+from common.evaluate import score_row
+from common.parser import NXMLParser
 
 
 def normalize_conditions(pred: dict) -> dict:

@@ -4,29 +4,38 @@ Extracts 6 structured fields from PMC biomedical articles: `conditions`, `study_
 
 ## Structure
 
-```
-config.py                 constants (model names, queries, metric weights)
-parser.py                 NXMLParser — parses PMC JATS/NXML to structured dicts
-models.py                 all training components and CohortXPipeline (Path A)
-evaluate.py               competition metrics (number sim, BioBERT cosine, FM3S)
-train.py                  CLI entry point for training (Path A)
-predict_ollama.py         LIVE offline inference via Ollama (Qwen 1.5B) — Path B
-predict_qwen.py           local/Colab inference via Transformers (Qwen3-4B, 8-bit)
-explore.ipynb             NXML exploration and failure analysis
+Files are grouped by category; every folder below is a Python package, so all
+scripts run in module form from the repo root (`python -m <pkg>.<module>`).
 
-# ── GEPA prompt optimization (dev-time) ──────────────────────────────
-download_data.py          fetch competition data via kagglehub
-data_split.py             deterministic train/val/holdout split (results/splits.json)
-dspy_program.py           DSPy signature + program + GEPA metric (field-specific feedback)
-optimize_gepa.py          run GEPA (Claude reflection) -> optimized instruction
-run_eval.py               score the offline path (baseline / optimized) on a split
-scenario_test.py          qualitative pred-vs-gold inspection on sample papers
-cohortx_gepa_colab.ipynb  end-to-end GPU-aware notebook for demos
+```
+run_submission.py             bare-script entry point for graders (offline Path B)
+common/                       shared by everything
+  config.py                   constants (model names, queries, metric weights)
+  parser.py                   NXMLParser — parses PMC JATS/NXML to structured dicts
+  evaluate.py                 competition metrics (number sim, BioBERT cosine, FM3S)
+finetuned_models/             Path A — week-1 fine-tuned experiments (HISTORICAL)
+  models.py                   all training components and CohortXPipeline
+  train.py                    CLI entry point for training
+  predict.py                  inference with the fine-tuned model chain
+local_llm/                    Path B — THE LIVE SUBMISSION
+  predict_ollama.py           LIVE offline inference via Ollama (Qwen 1.5B)
+  predict_qwen.py             alt backend via Transformers (Qwen3-4B, 8-bit)
+gepa_opt/                     dev-time GEPA prompt optimization (never on the offline path;
+                              named gepa_opt to avoid shadowing the installed `gepa` library)
+  data_split.py               deterministic train/val/holdout split (results/splits.json)
+  dspy_program.py             DSPy signature + program + GEPA metric (field-specific feedback)
+  optimize_gepa.py            run GEPA (Claude reflection) -> optimized instruction
+  run_eval.py                 score the offline path (baseline / optimized) on a split
+  scenario_test.py            qualitative pred-vs-gold inspection on sample papers
+notebooks/                    explore.ipynb, explore_failure_mode.ipynb, cohortx_gepa_colab.ipynb
+tests/                        test_refactor.py
+data/                         download_data.py (dataset itself is gitignored)
+results/                      baseline.json, gepa_optimized.json, optimized_instruction.txt, splits.json
 ```
 
-Two solution paths live in this repo: **Path A** (fine-tuned specialist chain:
-`train.py`, `models.py`, `predict.py`) and **Path B** (the live single-model generative
-pipeline: `predict_ollama.py`). The GEPA work optimizes **Path B only**.
+Two solution paths live in this repo: **Path A** (fine-tuned specialist chain in
+`finetuned_models/`) and **Path B** (the live single-model generative pipeline in
+`local_llm/predict_ollama.py`). The GEPA work optimizes **Path B only**.
 
 ## Setup
 
@@ -44,7 +53,7 @@ python -m spacy download en_core_web_sm
 ## Training
 
 ```bash
-python train.py \
+python -m finetuned_models.train \
   --data_dir /path/to/data \
   --nxml_dir /path/to/PMC_NXML_Archives \
   --gpu
@@ -52,20 +61,23 @@ python train.py \
 
 ## Inference
 
-**Ollama (local, Qwen 1.5B):**
+**Ollama (local, Qwen 1.5B) — THE SUBMISSION:**
 ```bash
+ollama serve
 ollama pull qwen2.5:1.5b
-python predict_ollama.py \
-	--data_dir /path/to/data
-	--nxml_dir /path/to/nxml
+python -m local_llm.predict_ollama \
+	--data_dir /path/to/data \
+	--nxml_dir /path/to/nxml \
 	--test
+# equivalently, the bare-script entry point graders can use:
+python run_submission.py --data_dir /path/to/data --nxml_dir /path/to/nxml --test
 ```
 
 **Transformers (Qwen3-4B, 8-bit):**
 
 ```bash
 pip install accelerate bitsandbytes
-python predict_qwen.py \
+python -m local_llm.predict_qwen \
   --data_dir /path/to/data \
   --nxml_dir /path/to/PMC_NXML_Archives \
   --test
@@ -78,16 +90,16 @@ GEPA (DSPy's reflective optimizer) rewrites the Path-B **instruction** using a s
 into the **offline** Ollama path. The reflection model is never on the inference path.
 
 ```bash
-python download_data.py                                              # data via kagglehub
-python run_eval.py --split holdout --output results/baseline.json    # "before"
-python optimize_gepa.py --max_metric_calls 150                       # GEPA (needs .env key)
-python run_eval.py --split holdout \
+python data/download_data.py                                               # data via kagglehub
+python -m gepa_opt.run_eval --split holdout --output results/baseline.json # "before"
+python -m gepa_opt.optimize_gepa --max_metric_calls 150                    # GEPA (needs .env key)
+python -m gepa_opt.run_eval --split holdout \
     --instruction_file results/optimized_instruction.txt \
-    --output results/optimized.json                                  # "after"
+    --output results/optimized.json                                       # "after"
 ```
 
 `.env` (gitignored) holds `ANTHROPIC_API_KEY`. To **ship** an optimized prompt, paste
-`results/optimized_instruction.txt` into `predict_ollama.py`'s `INSTRUCTION_PROSE`.
+`results/optimized_instruction.txt` into `local_llm/predict_ollama.py`'s `INSTRUCTION_PROSE`.
 Full write-up in [results/findings.md](results/findings.md).
 
 **Result (held-out n=60):** composite **0.629 → 0.686 (+0.057, +9% rel)** for **$0.13**.
@@ -98,7 +110,7 @@ ClinicalTrials.gov, so honest "Not Specified" scores 0 against a gold of "18 Yea
 ## Evaluation
 
 ```python
-from evaluate import evaluate_fast
+from common.evaluate import evaluate_fast
 scores_df = evaluate_fast(preds_df, gold_df)
 ```
 

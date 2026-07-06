@@ -22,10 +22,10 @@ from pathlib import Path
 import dspy
 from tqdm import tqdm
 
-import predict_ollama
-from data_split import FIELDS, get_splits, gold_dict, load_sheet, nxml_path
-from evaluate import score_row
-from parser import NXMLParser
+from local_llm import predict_ollama
+from gepa_opt.data_split import FIELDS, get_splits, gold_dict, load_sheet, nxml_path
+from common.evaluate import score_row
+from common.parser import NXMLParser
 
 CONTEXT_CACHE = Path("results/contexts.pkl")
 NOT_SPEC      = "Not Specified"

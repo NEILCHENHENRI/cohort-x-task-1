@@ -5,14 +5,14 @@ Loads trained model checkpoints and runs extraction on a dataset split.
 
 Usage:
   # Run on test set
-  python predict.py \
+  python -m finetuned_models.predict \
     --data_dir   ~/Downloads/cohort-x-task-1 \
     --nxml_dir   ~/Downloads/cohort-x-task-1/PMC_NXML_Archives \
     --models_dir ~/Downloads/cohort-x-task-1/models \
     --gpu
 
   # Evaluate on training set
-  python predict.py \
+  python -m finetuned_models.predict \
     --data_dir   ~/Downloads/cohort-x-task-1 \
     --nxml_dir   ~/Downloads/cohort-x-task-1/PMC_NXML_Archives \
     --models_dir ~/Downloads/cohort-x-task-1/models \
@@ -28,7 +28,7 @@ from pathlib import Path
 import pandas as pd
 from tqdm import tqdm
 
-from models import CohortXPipeline
+from finetuned_models.models import CohortXPipeline
 
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s [%(levelname)s] %(message)s")

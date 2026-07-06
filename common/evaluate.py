@@ -10,7 +10,7 @@ Implements the three competition metrics:
                              (noun sim + verb sim + CWO, λ=0.6)
 
 Usage:
-  from evaluate import evaluate_fast, evaluate, score_row
+  from common.evaluate import evaluate_fast, evaluate, score_row
 """
 
 import re
@@ -22,7 +22,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from tqdm import tqdm
 from word2number import w2n
 
-from config import ALPHA, BIOBERT_EVAL_NAME, LAM, STOP_VERBS, WEIGHTS
+from common.config import ALPHA, BIOBERT_EVAL_NAME, LAM, STOP_VERBS, WEIGHTS
 
 # ---------------------------------------------------------------------------
 # Lazy model loading — only instantiated when first used

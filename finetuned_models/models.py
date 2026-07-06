@@ -2,7 +2,7 @@
 CohortX Task 1 — Model Classes
 ================================
 All training components and the CohortXPipeline.
-Constants are in config.py; NXMLParser is in parser.py.
+Constants are in common/config.py; NXMLParser is in common/parser.py.
 """
 
 import ast
@@ -27,14 +27,14 @@ from transformers import (
     default_data_collator,
 )
 
-from config import (
+from common.config import (
     AGE_MAX_CONTEXT, AGE_QUESTIONS,
     BIOMEDBERT_NAME, BIOBERT_QA_NAME, DISEASE_NER_NAME,
     DISTILBERT_NAME, ELIGIBILITY_QUERY, MINILM_NAME,
     SCIFIVE_CONDITIONS_NAME, SCIFIVE_MAX_INPUT, SCIFIVE_MAX_OUTPUT,
     SCIFIVE_NAME, STAGE1_TOP_K,
 )
-from parser import NXMLParser
+from common.parser import NXMLParser
 
 warnings.filterwarnings("ignore")
 DEVICE          = torch.device("cuda" if torch.cuda.is_available() else "cpu")

@@ -5,7 +5,7 @@ Uses Qwen3-4B through Transformers in 8-bit mode while reusing the
 existing MiniLM section filtering and prompt.
 
 Usage:
-  python predict_qwen.py \
+  python -m local_llm.predict_qwen \
     --data_dir  ~/Downloads/cohort-x-task-1 \
     --nxml_dir  ~/Downloads/cohort-x-task-1/PMC_NXML_Archives \
     [--model    Qwen/Qwen3-4B] \
@@ -20,8 +20,8 @@ from pathlib import Path
 import pandas as pd
 from tqdm import tqdm
 
-from config import ELIGIBILITY_QUERY
-from parser import NXMLParser
+from common.config import ELIGIBILITY_QUERY
+from common.parser import NXMLParser
 
 # ---------------------------------------------------------------------------
 # Section filter (MiniLM)

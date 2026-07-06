@@ -5,7 +5,7 @@ Optimizes the Path-B instruction with DSPy GEPA. Student = local Qwen (Ollama);
 reflection = Claude (Anthropic API, dev-time only). Produces one optimized
 instruction string, saved for paste-back into predict_ollama.py.
 
-  python optimize_gepa.py [--auto light] [--train_n 60] [--val_n 40] \
+  python -m gepa_opt.optimize_gepa [--auto light] [--train_n 60] [--val_n 40] \
                           [--reflection_model anthropic/claude-sonnet-4-6]
 
 Requires .env with the Anthropic key (ANTHROPIC_API_KEY or CLAUDE_API_KEY).
@@ -19,7 +19,7 @@ from pathlib import Path
 import dspy
 from dotenv import load_dotenv
 
-from dspy_program import CohortExtractor, build_examples, configure_student, gepa_metric
+from gepa_opt.dspy_program import CohortExtractor, build_examples, configure_student, gepa_metric
 
 
 def setup_anthropic_key() -> None:

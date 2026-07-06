@@ -8,7 +8,7 @@ Auth: requires ~/.kaggle/kaggle.json (or KAGGLE_USERNAME / KAGGLE_KEY) for an
 account that has accepted the competition rules. No secrets live in this file.
 
 Usage:
-  python download_data.py
+  python data/download_data.py
 """
 
 from pathlib import Path

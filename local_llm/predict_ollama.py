@@ -9,7 +9,7 @@ Usage:
   ollama serve
   ollama pull qwen2.5:1.5b
 
-  python predict_ollama.py \\
+  python -m local_llm.predict_ollama \\
     --data_dir  ~/Downloads/cohort-x-task-1 \\
     --nxml_dir  ~/Downloads/cohort-x-task-1/PMC_NXML_Archives \\
     [--model    qwen2.5:1.5b] \\
@@ -24,8 +24,8 @@ from pathlib import Path
 import pandas as pd
 from tqdm import tqdm
 
-from config import ELIGIBILITY_QUERY
-from parser import NXMLParser
+from common.config import ELIGIBILITY_QUERY
+from common.parser import NXMLParser
 
 # ---------------------------------------------------------------------------
 # Section filter (MiniLM)

@@ -2,7 +2,7 @@
 CohortX Task 1 — Training Entry Point
 
 Usage:
-  python train.py --data_dir /path/to/data --nxml_dir /path/to/PMC_NXML_Archives [--gpu]
+  python -m finetuned_models.train --data_dir /path/to/data --nxml_dir /path/to/PMC_NXML_Archives [--gpu]
 """
 
 import argparse
@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from models import CohortXPipeline
+from finetuned_models.models import CohortXPipeline
 
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s [%(levelname)s] %(message)s")
