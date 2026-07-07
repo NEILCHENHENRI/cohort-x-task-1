@@ -64,7 +64,7 @@ Two additions build on Path B:
 
 ---
 
-# Base pipeline (Neil)
+# Base pipeline
 
 ## Setup
 
@@ -154,7 +154,7 @@ scores_df = evaluate_fast(preds_df, gold_df)
 
 ---
 
-# GEPA prompt optimization (Evan)
+# GEPA prompt optimization 
 
 GEPA (DSPy's reflective optimizer) automatically rewrites the Path-B **instruction** using
 a strong **Claude** reflection model at *dev time*, then ships the single optimized
