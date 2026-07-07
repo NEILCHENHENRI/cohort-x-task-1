@@ -8,10 +8,21 @@ venv/
 __pycache__/
 .ipynb_checkpoints/
 *.pyc
+*.csv
 .env
 submission*.xlsx
 train_preds*.xlsx
 .DS_Store
+.vscode/
+.idea/
+local.py
+quick_vis.ipynb
+
+# retrieval subsystem outputs (regenerable, large)
+parsed/
+retrieved_contexts/
+embedding_cache/
+unified_candidates/
 
 # GEPA dev-time caches / large dumps (results JSON + findings are kept)
 results/contexts.pkl
