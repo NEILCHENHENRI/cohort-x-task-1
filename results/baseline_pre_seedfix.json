@@ -1,0 +1,15 @@
+{
+  "split": "holdout",
+  "n": 60,
+  "model": "qwen2.5:1.5b",
+  "instruction_sha8": "d323b5cd",
+  "mean_scores": {
+    "sex": 1.0,
+    "minimum_age": 0.2667,
+    "maximum_age": 0.4667,
+    "conditions": 0.2509,
+    "study_type": 0.7754,
+    "eligibility_criteria": 0.7807,
+    "overall": 0.6288
+  }
+}

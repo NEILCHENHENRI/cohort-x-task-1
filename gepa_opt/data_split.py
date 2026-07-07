@@ -23,6 +23,10 @@ DATA_DIR   = Path.home() / ".cache/kagglehub/competitions/cohort-x-task-1"
 DATA_XLSX  = DATA_DIR / "Task_1.xlsx"
 NXML_DIR   = DATA_DIR / "PMC_NXML_Archives"
 SPLIT_FILE = Path("results/splits.json")
+# Canonical holdout export: a plain list of the holdout pmcids, kept in sync with
+# SPLIT_FILE["holdout"]. baseline eval and gepa_opt.check_transfer read this so
+# before/after is scored on the identical docs (single source of truth).
+HOLDOUT_IDS_FILE = Path("results/holdout_ids.json")
 SEED       = 42
 
 FIELDS = ["conditions", "study_type", "sex",
@@ -44,6 +48,12 @@ def gold_dict(row) -> dict:
     return {f: ("" if pd.isna(row[f]) else str(row[f])) for f in FIELDS}
 
 
+def _sync_holdout_ids(splits: dict) -> None:
+    """Keep results/holdout_ids.json equal to splits['holdout'] (canonical export)."""
+    HOLDOUT_IDS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    HOLDOUT_IDS_FILE.write_text(json.dumps(splits["holdout"], indent=2))
+
+
 def get_splits(n_train: int = 60, n_val: int = 40, n_holdout: int = 60,
                force: bool = False) -> dict:
     """Return {'train': [...], 'val': [...], 'holdout': [...]} of pmcids.
@@ -51,7 +61,9 @@ def get_splits(n_train: int = 60, n_val: int = 40, n_holdout: int = 60,
     Persisted on first call; reused verbatim thereafter (pass force=True to
     regenerate, e.g. after changing sizes)."""
     if SPLIT_FILE.exists() and not force:
-        return json.loads(SPLIT_FILE.read_text())
+        splits = json.loads(SPLIT_FILE.read_text())
+        _sync_holdout_ids(splits)
+        return splits
 
     df = load_sheet("Train")
     pmcids = [p for p in df["pmcids"].tolist() if nxml_path(p).exists()]
@@ -62,6 +74,7 @@ def get_splits(n_train: int = 60, n_val: int = 40, n_holdout: int = 60,
 
     SPLIT_FILE.parent.mkdir(parents=True, exist_ok=True)
     SPLIT_FILE.write_text(json.dumps(splits, indent=2))
+    _sync_holdout_ids(splits)
     return splits
 
 

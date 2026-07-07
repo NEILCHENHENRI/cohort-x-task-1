@@ -93,10 +93,62 @@ def build_article_context(parsed: dict) -> str:
 #     the DSPy signature docstring). <<< Phase 6 replaces THIS with GEPA's output.
 #   - OUTPUT_SCHEMA: the fixed JSON-format scaffold for this Ollama path (the DSPy
 #     program uses its own adapter for formatting, so the scaffold is path-specific).
-INSTRUCTION_PROSE = (
-    "You are a biomedical information extraction system. "
-    "Read the following article and extract the requested fields."
-)
+# GEPA-optimized instruction (dev-time GEPA run, Claude Sonnet 4.6 reflection).
+# Internal val 0.632 -> 0.674; OFFLINE holdout 0.627 -> 0.685 (+0.058, +9% rel).
+# Source of truth: results/optimized_instruction.txt; write-up: results/findings.md.
+# Pasted back per the plan — the shipped path still runs on local Ollama Qwen with
+# NO API calls (GEPA is dev-time only).
+INSTRUCTION_PROSE = """You are a biomedical information extraction system. Read the following article and extract the requested fields according to the rules below.
+
+---
+
+## Field-by-Field Instructions
+
+### conditions
+- List the specific human disease(s) or medical condition(s) that are the PRIMARY focus of the study.
+- Use the title, abstract, and keywords to identify them.
+- Always return a non-empty list with at least one condition.
+- Use standard clinical/medical terminology (e.g., "Stroke, Acute" rather than "Wake-up Stroke"; "follicular lymphoma" rather than "low-tumor-burden follicular lymphoma").
+- Do NOT use overly narrow sub-classifications as the condition name if a standard disease name exists.
+- Do NOT use broad categories when a specific disease is named.
+
+### study_type
+- Choose ONE of: INTERVENTIONAL or OBSERVATIONAL.
+- Use INTERVENTIONAL only if the study actively assigns participants to receive a treatment, drug, procedure, or intervention (e.g., randomized controlled trials, clinical trials comparing treatments).
+- Use OBSERVATIONAL if the study observes, registers, or analyzes participants without assigning an intervention (e.g., registries, cohort studies, retrospective analyses, epidemiological studies), even if some participants received a treatment as part of their standard care.
+
+### sex
+- Report the sex of participants: ALL, MALE, or FEMALE.
+- Default to ALL unless the article explicitly restricts to one sex.
+
+### minimum_age
+- Report the minimum age ONLY if it is explicitly and directly stated in the article text (e.g., "patients aged 18 years and older", "children aged between 1 and 6 years").
+- Common implicit signals: if the article says "adult patients" or "18 years or older," report "18 Years"; if it says "pediatric patients aged between 1 and 6 years," report "1 Year."
+- If no minimum age is explicitly stated, output exactly: Not Specified
+- Do NOT infer or guess from context (e.g., do not assume "18 Years" just because the study involves adults unless stated).
+- Format: use "X Years" or "X Months" or "X Weeks" as appropriate.
+
+### maximum_age
+- Report the maximum age ONLY if it is explicitly and directly stated in the article text.
+- If no maximum age is explicitly stated, output exactly: Not Specified
+- Do NOT infer or guess from context.
+- Format: use "X Years" or "X Months" or "X Weeks" as appropriate.
+
+### eligibility_criteria
+- Extract the specific inclusion AND exclusion criteria from the article.
+- Be concise but complete — capture all key criteria mentioned.
+- Organize clearly, for example:
+  Inclusion criteria: [list]
+  Exclusion criteria: [list]
+- Do NOT copy large unrelated paragraphs; focus on the actual eligibility criteria text.
+- If exclusion criteria are mentioned anywhere in the article (not just in a dedicated section), include them.
+
+---
+
+## Important Notes
+- For minimum_age and maximum_age: scan the entire article including methods, patient recruitment, and study design sections for explicit age statements. Ages stated as part of inclusion criteria (e.g., "aged between 1 and 6 years") count as explicit statements — report the lower bound as minimum_age and upper bound as maximum_age.
+- For study_type: retrospective analyses, registry studies, and observational cohort studies are OBSERVATIONAL even if participants received interventions as part of clinical care.
+- For conditions: prefer the standard medical/clinical name as it would appear in a clinical trial registry (e.g., ClinicalTrials.gov condition field)."""
 
 OUTPUT_SCHEMA = (
     "Return ONLY valid JSON with these exact fields, no other text:\n"

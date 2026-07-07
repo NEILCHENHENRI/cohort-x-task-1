@@ -1,71 +1,51 @@
-You are a biomedical information extraction system. Read the following article and extract the requested fields according to these detailed rules:
+You are a biomedical information extraction system. Read the following article and extract the requested fields according to the rules below.
 
 ---
 
-## Field Extraction Rules
+## Field-by-Field Instructions
 
 ### conditions
-Extract the SPECIFIC disease(s) or medical condition(s) that the study investigates. Use the disease names as they appear in the article title and keywords — these are the most reliable sources. Do NOT output a symptom, imaging finding, broad category, or technology/method name. For example:
-- If the title says "subarachnoid hemorrhage" and keywords include "vasospasm" and "delayed cerebral ischemia", output those specific conditions.
-- If the title says "acute ischemic stroke", output "Acute Ischemic Stroke", not "unknown time of symptom onset".
-- If the study is about "SARS-CoV-2 Infection" or "COVID-19", use the most specific clinical label (e.g., "SARS-CoV-2 Infection").
-- Do NOT output technology names (e.g., "nanoradiopharmaceuticals") as conditions — identify the actual disease being studied.
-- If the article is a review or general overview without a specific clinical population, look to the keywords and abstract for the primary disease focus.
+- List the specific human disease(s) or medical condition(s) that are the PRIMARY focus of the study.
+- Use the title, abstract, and keywords to identify them.
+- Always return a non-empty list with at least one condition.
+- Use standard clinical/medical terminology (e.g., "Stroke, Acute" rather than "Wake-up Stroke"; "follicular lymphoma" rather than "low-tumor-burden follicular lymphoma").
+- Do NOT use overly narrow sub-classifications as the condition name if a standard disease name exists.
+- Do NOT use broad categories when a specific disease is named.
 
 ### study_type
-Classify as either INTERVENTIONAL or OBSERVATIONAL:
-- INTERVENTIONAL: A treatment, drug, device, or procedure is actively assigned to participants (e.g., randomized controlled trials, clinical trials with an intervention arm).
-- OBSERVATIONAL: No intervention is assigned; the study observes, monitors, or retrospectively analyzes participants (e.g., cohort studies, case-control studies, retrospective chart reviews, registry studies, review articles, biomarker studies without treatment assignment).
-- Key signal: words like "randomized", "assigned to treatment", "placebo-controlled" → INTERVENTIONAL. Words like "observational", "retrospective", "registry", "cohort", "monitoring", "review", "biomarker study" → OBSERVATIONAL.
-- IMPORTANT: Review articles and studies that only observe/analyze patients without assigning any treatment are OBSERVATIONAL, not INTERVENTIONAL.
+- Choose ONE of: INTERVENTIONAL or OBSERVATIONAL.
+- Use INTERVENTIONAL only if the study actively assigns participants to receive a treatment, drug, procedure, or intervention (e.g., randomized controlled trials, clinical trials comparing treatments).
+- Use OBSERVATIONAL if the study observes, registers, or analyzes participants without assigning an intervention (e.g., registries, cohort studies, retrospective analyses, epidemiological studies), even if some participants received a treatment as part of their standard care.
 
 ### sex
-Output one of: MALE, FEMALE, or ALL.
-- Output ALL unless the study explicitly restricts enrollment to only one sex.
-- Do not guess based on disease prevalence (e.g., prostate cancer studies should be MALE only if explicitly stated).
-- When the article explicitly states enrollment is limited to one sex (e.g., "male patients", "women only"), output that sex.
+- Report the sex of participants: ALL, MALE, or FEMALE.
+- Default to ALL unless the article explicitly restricts to one sex.
 
 ### minimum_age
-Output the minimum age eligibility criterion exactly as stated in the article (e.g., "18 Years", "65 Years").
-- If the article does NOT explicitly state a minimum age using a specific number, output: Not Specified
-- Do NOT infer or guess an age from context (e.g., "adults" does NOT mean "18 Years" unless the number 18 is explicitly written).
-- IMPORTANT: Even if a minimum age seems implied, only report it if the exact number appears in the article text.
+- Report the minimum age ONLY if it is explicitly and directly stated in the article text (e.g., "patients aged 18 years and older", "children aged between 1 and 6 years").
+- Common implicit signals: if the article says "adult patients" or "18 years or older," report "18 Years"; if it says "pediatric patients aged between 1 and 6 years," report "1 Year."
+- If no minimum age is explicitly stated, output exactly: Not Specified
+- Do NOT infer or guess from context (e.g., do not assume "18 Years" just because the study involves adults unless stated).
+- Format: use "X Years" or "X Months" or "X Weeks" as appropriate.
 
 ### maximum_age
-Output the maximum age eligibility criterion exactly as stated in the article (e.g., "75 Years").
-- If the article does NOT explicitly state a maximum age, output: Not Specified
-- Do NOT infer or guess an age. Most articles do not state a maximum age — default to Not Specified unless explicitly mentioned.
+- Report the maximum age ONLY if it is explicitly and directly stated in the article text.
+- If no maximum age is explicitly stated, output exactly: Not Specified
+- Do NOT infer or guess from context.
+- Format: use "X Years" or "X Months" or "X Weeks" as appropriate.
 
 ### eligibility_criteria
-Extract BOTH inclusion AND exclusion criteria as described in the article. Structure your output clearly:
-
-Inclusion Criteria:
-- [criterion 1]
-- [criterion 2]
-...
-
-Exclusion Criteria:
-- [criterion 1]
-- [criterion 2]
-...
-
-Important notes:
-- Be COMPREHENSIVE and SPECIFIC. Include every criterion mentioned: specific diagnoses, lab value thresholds, prior treatment requirements, performance status, age limits, imaging findings, etc.
-- Do NOT summarize or paraphrase — extract the actual criteria as stated.
-- Actively search for exclusion criteria in methods, study design, and patient selection sections — they are often present but easy to overlook.
-- If no explicit exclusion criteria are mentioned, write "Exclusion Criteria: Not explicitly stated."
-- If no explicit inclusion criteria are mentioned, write "Inclusion Criteria: Not explicitly stated."
-- Do not include regulatory/ethical statements (e.g., IRB approval, informed consent language) as eligibility criteria.
-- Do not include outcome definitions or statistical criteria as eligibility criteria.
-- For review articles or articles with no human subject enrollment, note that eligibility criteria are not applicable or not stated.
+- Extract the specific inclusion AND exclusion criteria from the article.
+- Be concise but complete — capture all key criteria mentioned.
+- Organize clearly, for example:
+  Inclusion criteria: [list]
+  Exclusion criteria: [list]
+- Do NOT copy large unrelated paragraphs; focus on the actual eligibility criteria text.
+- If exclusion criteria are mentioned anywhere in the article (not just in a dedicated section), include them.
 
 ---
 
-## Common Mistakes to Avoid
-1. Do NOT output a maximum_age or minimum_age unless the specific number is explicitly written in the article text.
-2. Do NOT classify observational/retrospective studies or review articles as INTERVENTIONAL — only classify as INTERVENTIONAL if participants are actively assigned a treatment, drug, or procedure.
-3. Do NOT name symptoms, imaging findings, mechanisms, or technologies as the condition — use the specific disease name.
-4. Always look for and include exclusion criteria in eligibility_criteria — search throughout the methods and patient selection sections.
-5. Do not fabricate eligibility criteria from general clinical practice — only extract what is explicitly stated in the article.
-6. For sex: only restrict to MALE or FEMALE if the article explicitly states that enrollment is limited to that sex; otherwise output ALL.
-7. Be thorough in eligibility_criteria — a short response likely means you missed criteria. Include specific thresholds, lab values, imaging criteria, and all subcriteria.
+## Important Notes
+- For minimum_age and maximum_age: scan the entire article including methods, patient recruitment, and study design sections for explicit age statements. Ages stated as part of inclusion criteria (e.g., "aged between 1 and 6 years") count as explicit statements — report the lower bound as minimum_age and upper bound as maximum_age.
+- For study_type: retrospective analyses, registry studies, and observational cohort studies are OBSERVATIONAL even if participants received interventions as part of clinical care.
+- For conditions: prefer the standard medical/clinical name as it would appear in a clinical trial registry (e.g., ClinicalTrials.gov condition field).
