@@ -1,6 +1,6 @@
 # GEPA Prompt Optimization — Findings
 
-**CohortX Task 1** · 2026-07-06
+**CohortX Task 1** · 2026-07-07
 Student model: Qwen2.5-1.5B (local, offline) · Reflection model: Claude Sonnet 4.6 (dev-time only) · Optimizer: DSPy GEPA
 
 ---
@@ -8,10 +8,11 @@ Student model: Qwen2.5-1.5B (local, offline) · Reflection model: Claude Sonnet 
 ## TL;DR
 
 We used **GEPA** to automatically rewrite the prompt our extraction model runs on.
-On 60 held-out papers it lifted our score from **0.627 → 0.685 (+9%)**, for **12 cents**
-of API credits and one ~30-minute run. Almost all of the gain came from the single
-highest-weighted field — eligibility criteria (50% of the score). The optimized prompt
-is shipped in the offline pipeline; the delivered system makes **no API calls**.
+On 60 held-out papers it lifted our score from our default hand-written prompt
+**0.629 → 0.685 (+0.056, +9%)**, for **12 cents** of API credits and one ~30-minute run.
+The biggest wins were in `conditions` and `study_type`, plus a solid gain on the
+50%-weighted `eligibility_criteria` field. The optimized prompt is shipped in the offline
+pipeline; the delivered system makes **no API calls**.
 
 ---
 
@@ -108,9 +109,9 @@ To let GEPA optimize the instruction, we wrapped our extractor as a small **DSPy
 (DSPy is the framework GEPA runs inside). It has three parts:
 
 1. **A typed extraction task** — one input (the article context) and six outputs (the six
-   fields). We **seeded its instruction with our existing hand-written prompt**, so GEPA's
-   starting point *is* our current baseline and any gain is a fair before/after. We kept
-   the model call simple (direct prediction, no chain-of-thought — the 1.5B model tends to
+   fields). We **seeded its instruction with our existing hand-written prompt**, so the
+   comparison is prompt-vs-prompt with the input and the scorer held fixed. We kept the
+   model call simple (direct prediction, no chain-of-thought — the 1.5B model tends to
    mishandle extra reasoning steps) and made it crash-proof: if the small model returns
    malformed output, every field falls back to "Not Specified" instead of erroring.
 
@@ -150,36 +151,71 @@ API library.
 ## 4. Impact / results
 
 Scored on **60 held-out papers the optimizer never saw**, using the real offline
-pipeline and the competition metric:
+pipeline and the competition metric. "Before" = our default hand-written prompt
+(`results/seed_instruction.txt`); "After" = the GEPA-optimized prompt
+(`results/optimized_instruction.txt`, the one that ships):
 
-| Field | Weight | Hand-tuned prompt | GEPA-optimized | Δ |
+| Field | Weight | Before (default) | After (GEPA) | Δ |
 |---|---:|---:|---:|---:|
-| **eligibility_criteria** | 0.50 | 0.716 | **0.822** | **+0.106** |
-| conditions | 0.15 | 0.552 | 0.550 | −0.002 |
-| study_type | 0.10 | 0.845 | 0.880 | +0.035 |
+| **eligibility_criteria** | 0.50 | 0.781 | **0.822** | **+0.042** |
+| conditions | 0.15 | 0.251 | 0.550 | **+0.300** |
+| study_type | 0.10 | 0.775 | 0.880 | +0.105 |
 | maximum_age | 0.10 | 0.467 | 0.483 | +0.017 |
-| minimum_age | 0.10 | 0.050 | 0.050 | 0.000 |
+| minimum_age | 0.10 | 0.267 | 0.050 | −0.217 |
 | sex | 0.05 | 1.000 | 1.000 | 0.000 |
-| **OVERALL** | 1.00 | **0.627** | **0.685** | **+0.058** |
+| **OVERALL** | 1.00 | **0.629** | **0.685** | **+0.056** |
 
-**The story in one line: hand-tuning couldn't win; GEPA could.** When we tried to fix our
-weakest field (conditions) by hand, it helped conditions but quietly *broke* eligibility
-— and because eligibility is half the score, the overall stayed flat. GEPA, optimizing
-the whole prompt against per-field feedback, kept the conditions gain **and** repaired
-eligibility, pushing it above where it started. Of the +0.058 total gain, **+0.053 came
-from eligibility** alone.
+**The story in one line: GEPA improved four fields at once.** The biggest jump is
+`conditions` (**+0.30**) — the default prompt named diseases too vaguely, and GEPA taught
+it to use standard clinical-registry terminology. It also lifted `study_type` (+0.105) and,
+importantly, `eligibility_criteria` (+0.042 — and since that field is half the grade, it is
+the second-largest *weighted* contributor). Improving several fields together is exactly
+where GEPA beats hand-editing: tweaking a prompt by hand tends to fix one field while
+breaking another, whereas GEPA optimizes the whole instruction against per-field feedback.
 
-**One honest caveat — minimum_age.** The "gold" ages come from a clinical-trial registry,
-not the paper text, so the correct age often isn't actually stated in the article. GEPA
-(correctly) taught the model to answer **"Not Specified"** instead of guessing. That is
-more truthful, but scores lower on this one field, because the metric rewards guessing the
-common "18 Years." We chose truthfulness over gaming the metric.
+Weighted contribution of the **+0.056** gain: `conditions` **+0.045**, `eligibility`
+**+0.021**, `study_type` +0.010, `maximum_age` +0.002, minus a **−0.022** drag from
+`minimum_age` (explained next).
+
+**One honest caveat — `minimum_age` regressed (−0.217).** The "gold" ages come from a
+clinical-trial registry, not the paper text, so the correct age often isn't actually
+stated in the article. The default prompt scored higher here only by **guessing** a number
+(commonly "18 Years"); GEPA correctly taught the model to answer **"Not Specified"** when
+the age isn't stated. That is more truthful but scores worse against registry gold — a
+metric artifact, not a real failure. The score-optimal hack would be to always emit the
+constant "18 Years"; we deliberately did **not** do that.
 
 **Cost:** $0.118, 4 reflection calls, ~30 min on a fanless laptop.
 
 ---
 
-## 5. Next steps
+## 5. Reproduce
+
+Both ends are scored on the **same** 60 held-out papers (`results/holdout_ids.json`), on
+the real offline path, swapping **only** the instruction — so it is an honest, isolated
+before/after. Neither command depends on what is currently pasted into
+`predict_ollama.py`:
+
+```bash
+# BEFORE — default hand-written prompt (→ 0.629)
+python -m gepa_opt.run_eval --split holdout \
+    --instruction_file results/seed_instruction.txt --output results/baseline.json
+
+# AFTER — GEPA-optimized prompt (→ 0.685, the shipped one)
+python -m gepa_opt.run_eval --split holdout \
+    --instruction_file results/optimized_instruction.txt --output results/transfer_check.json
+
+# Re-run GEPA itself (dev-time only; needs .env ANTHROPIC_API_KEY)
+python -m gepa_opt.optimize_gepa --max_metric_calls 150
+```
+
+(Re-running GEPA will produce a *different* optimized prompt — the reflection model is
+creative, not deterministic — so its exact score will wiggle by ~0.001. The shipped
+prompt is frozen in `results/optimized_instruction.txt`, so the 0.685 above is fixed.)
+
+---
+
+## 6. Next steps
 
 1. **Scale the search.** This was a light run and it still found a +9% gain — a larger
    budget (more iterations / more training examples) may find more, especially for

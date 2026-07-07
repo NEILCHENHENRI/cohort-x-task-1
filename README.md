@@ -91,21 +91,23 @@ into the **offline** Ollama path. The reflection model is never on the inference
 
 ```bash
 python data/download_data.py                                               # data via kagglehub
-python -m gepa_opt.run_eval --split holdout --output results/baseline.json # "before"
-python -m gepa_opt.optimize_gepa --max_metric_calls 150                    # GEPA (needs .env key)
+# BEFORE — default hand-written prompt (-> 0.629)
 python -m gepa_opt.run_eval --split holdout \
-    --instruction_file results/optimized_instruction.txt \
-    --output results/optimized.json                                       # "after"
+    --instruction_file results/seed_instruction.txt --output results/baseline.json
+python -m gepa_opt.optimize_gepa --max_metric_calls 150                    # GEPA (needs .env key)
+# AFTER — GEPA-optimized prompt (-> 0.685, the shipped one)
+python -m gepa_opt.run_eval --split holdout \
+    --instruction_file results/optimized_instruction.txt --output results/transfer_check.json
 ```
 
 `.env` (gitignored) holds `ANTHROPIC_API_KEY`. To **ship** an optimized prompt, paste
 `results/optimized_instruction.txt` into `local_llm/predict_ollama.py`'s `INSTRUCTION_PROSE`.
 Full write-up in [results/findings.md](results/findings.md).
 
-**Result (held-out n=60):** composite **0.629 → 0.686 (+0.057, +9% rel)** for **$0.13**.
-Big wins on `conditions` (+0.29) and `eligibility_criteria` (+0.06, the 50%-weight
-field); `minimum_age` regressed (a metric artifact — gold ages come from
-ClinicalTrials.gov, so honest "Not Specified" scores 0 against a gold of "18 Years").
+**Result (held-out n=60):** composite **0.629 → 0.685 (+0.056, +9% rel)** for **$0.118**.
+Big wins on `conditions` (+0.30) and `study_type` (+0.11), plus `eligibility_criteria`
+(+0.04, the 50%-weight field); `minimum_age` regressed (a metric artifact — gold ages come
+from ClinicalTrials.gov, so an honest "Not Specified" scores 0 against a gold of "18 Years").
 
 ## Evaluation
 
