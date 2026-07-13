@@ -1,6 +1,6 @@
 """
 Tests for refactored CohortX codebase.
-Run from the repo root: python test_refactor.py
+Run from the repo root: python -m pytest tests/  (or python -m tests.test_refactor)
 
 Heavy-dependency tests (torch, sentence-transformers) are skipped automatically
 when those packages are not installed — they pass in the full training environment.
@@ -12,7 +12,7 @@ import textwrap
 import unittest
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # repo root on path
 
 # Detect optional deps once
 try:
@@ -35,19 +35,18 @@ except ImportError:
 class TestImports(unittest.TestCase):
 
     def test_config_imports(self):
-        import config
+        from common import config
         self.assertIsInstance(config.ELIGIBILITY_QUERY, str)
         self.assertIsInstance(config.WEIGHTS, dict)
-        self.assertIsInstance(config.AGE_PATTERNS, dict)
-        self.assertIsInstance(config.SEX_PATTERNS, list)
+        self.assertIsInstance(config.AGE_QUESTIONS, dict)
         self.assertIsInstance(config.STOP_VERBS, set)
 
     def test_parser_imports(self):
-        from parser import NXMLParser
+        from common.parser import NXMLParser
         self.assertTrue(callable(NXMLParser))
 
     def test_evaluate_imports(self):
-        from evaluate import (
+        from common.evaluate import (
             extract_numbers, number_similarity,
             score_row, evaluate_fast, evaluate,
         )
@@ -57,7 +56,7 @@ class TestImports(unittest.TestCase):
 
     @unittest.skipUnless(TORCH_AVAILABLE, "torch not installed")
     def test_models_imports(self):
-        from models import (
+        from finetuned_models.models import (
             NXMLParser, BiomedBERTEmbedder, Stage1Ranker,
             SciFiveGenerator, EligibilityExtractor,
             BERTClassifier, ConditionsExtractor,
@@ -72,7 +71,7 @@ class TestImports(unittest.TestCase):
     @unittest.skipUnless(TORCH_AVAILABLE, "torch not installed")
     def test_train_cli_importable(self):
         import importlib.util
-        spec   = importlib.util.spec_from_file_location("train_cli", "train.py")
+        spec   = importlib.util.spec_from_file_location("train_cli", "finetuned_models/train.py")
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         self.assertTrue(callable(module.main))
@@ -85,44 +84,44 @@ class TestImports(unittest.TestCase):
 class TestConfig(unittest.TestCase):
 
     def test_weights_sum_to_one(self):
-        from config import WEIGHTS
+        from common.config import WEIGHTS
         self.assertAlmostEqual(sum(WEIGHTS.values()), 1.0, places=5)
 
     def test_all_fields_present_in_weights(self):
-        from config import WEIGHTS
+        from common.config import WEIGHTS
         expected = {"conditions", "study_type", "sex",
                     "minimum_age", "maximum_age", "eligibility_criteria"}
         self.assertEqual(set(WEIGHTS.keys()), expected)
 
     def test_eligibility_has_highest_weight(self):
-        from config import WEIGHTS
+        from common.config import WEIGHTS
         self.assertEqual(max(WEIGHTS, key=WEIGHTS.get), "eligibility_criteria")
 
-    def test_age_patterns_have_both_bounds(self):
-        from config import AGE_PATTERNS
-        self.assertIn("minimum", AGE_PATTERNS)
-        self.assertIn("maximum", AGE_PATTERNS)
-        self.assertGreater(len(AGE_PATTERNS["minimum"]), 0)
-        self.assertGreater(len(AGE_PATTERNS["maximum"]), 0)
+    def test_age_questions_have_both_bounds(self):
+        from common.config import AGE_QUESTIONS
+        self.assertIn("minimum", AGE_QUESTIONS)
+        self.assertIn("maximum", AGE_QUESTIONS)
+        self.assertGreater(len(AGE_QUESTIONS["minimum"]), 0)
+        self.assertGreater(len(AGE_QUESTIONS["maximum"]), 0)
 
     def test_eligibility_query_nonempty(self):
-        from config import ELIGIBILITY_QUERY
+        from common.config import ELIGIBILITY_QUERY
         self.assertGreater(len(ELIGIBILITY_QUERY), 50)
 
     def test_lam_alpha_in_range(self):
-        from config import LAM, ALPHA
+        from common.config import LAM, ALPHA
         self.assertGreater(LAM, 0.0)
         self.assertLess(LAM, 1.0)
         self.assertGreater(ALPHA, 0.0)
         self.assertLess(ALPHA, 1.0)
 
     def test_stop_verbs_is_set(self):
-        from config import STOP_VERBS
+        from common.config import STOP_VERBS
         self.assertIsInstance(STOP_VERBS, set)
         self.assertIn("be", STOP_VERBS)
 
     def test_model_name_strings(self):
-        from config import (BIOMEDBERT_NAME, DISTILBERT_NAME, MINILM_NAME,
+        from common.config import (BIOMEDBERT_NAME, DISTILBERT_NAME, MINILM_NAME,
                              SCIFIVE_NAME, BIOBERT_QA_NAME, BIOBERT_EVAL_NAME)
         for name in [BIOMEDBERT_NAME, DISTILBERT_NAME, MINILM_NAME,
                      SCIFIVE_NAME, BIOBERT_QA_NAME, BIOBERT_EVAL_NAME]:
@@ -169,7 +168,7 @@ MINIMAL_NXML = textwrap.dedent("""\
 class TestNXMLParser(unittest.TestCase):
 
     def setUp(self):
-        from parser import NXMLParser
+        from common.parser import NXMLParser
         self.parser = NXMLParser()
         self.tmp    = tempfile.NamedTemporaryFile(
             suffix=".nxml", delete=False, mode="w", encoding="utf-8"
@@ -214,8 +213,8 @@ class TestNXMLParser(unittest.TestCase):
 
     @unittest.skipUnless(TORCH_AVAILABLE, "torch not installed")
     def test_models_parser_is_same_class_as_parser_module(self):
-        from models import NXMLParser as ModelParser
-        from parser import NXMLParser as ParserModule
+        from finetuned_models.models import NXMLParser as ModelParser
+        from common.parser import NXMLParser as ParserModule
         self.assertIs(ModelParser, ParserModule)
 
 
@@ -226,7 +225,7 @@ class TestNXMLParser(unittest.TestCase):
 class TestNumberSimilarity(unittest.TestCase):
 
     def setUp(self):
-        from evaluate import number_similarity, extract_numbers
+        from common.evaluate import number_similarity, extract_numbers
         self.num_sim = number_similarity
         self.extract = extract_numbers
 
@@ -264,35 +263,35 @@ class TestNumberSimilarity(unittest.TestCase):
 class TestScoreRow(unittest.TestCase):
 
     def _empty_pred_gold(self):
-        from config import WEIGHTS
+        from common.config import WEIGHTS
         return (
             {f: "Not Specified" for f in WEIGHTS},
             {f: "Not Specified" for f in WEIGHTS},
         )
 
     def test_score_row_has_all_keys(self):
-        from evaluate import score_row
-        from config import WEIGHTS
+        from common.evaluate import score_row
+        from common.config import WEIGHTS
         pred, gold = self._empty_pred_gold()
         result = score_row(pred, gold)
         for k in list(WEIGHTS.keys()) + ["overall"]:
             self.assertIn(k, result)
 
     def test_overall_in_unit_range(self):
-        from evaluate import score_row
+        from common.evaluate import score_row
         pred, gold = self._empty_pred_gold()
         result = score_row(pred, gold)
         self.assertGreaterEqual(result["overall"], 0.0)
         self.assertLessEqual(result["overall"], 1.0)
 
     def test_age_exact_match_scores_one(self):
-        from evaluate import score_row
+        from common.evaluate import score_row
         pred, gold = self._empty_pred_gold()
         pred["minimum_age"] = gold["minimum_age"] = "18 Years"
         self.assertEqual(score_row(pred, gold)["minimum_age"], 1.0)
 
     def test_age_mismatch_scores_zero(self):
-        from evaluate import score_row
+        from common.evaluate import score_row
         pred, gold = self._empty_pred_gold()
         pred["minimum_age"] = "18 Years"
         gold["minimum_age"] = "65 Years"

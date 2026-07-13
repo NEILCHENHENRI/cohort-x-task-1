@@ -28,7 +28,17 @@ nltk>=3.8.0
 # After installing nltk:  python -c "import nltk; nltk.download('wordnet'); nltk.download('wordnet_ic'); nltk.download('omw-1.4')"
 
 # ── Inference backends ────────────────────────────────────────────────────────
-ollama>=0.3.0          # local inference via Ollama server
+ollama>=0.3.0          # local inference via Ollama server (THE submission path)
 openai>=1.0.0          # GPT-4o-mini inference
 anthropic>=0.25.0      # Claude inference
-bitsandbytes>=0.43.0   # 4-bit quantization for large models on GPU
+
+# ── Optional / GPU-only (NOT needed for the offline submission) ────────────────
+# bitsandbytes is CUDA-only and FAILS to install on Apple Silicon (Mac M-series).
+# It is only used by the 8-bit alt backend local_llm/predict_qwen.py on an NVIDIA
+# GPU. Leave commented on Mac; uncomment only on a CUDA machine.
+# bitsandbytes>=0.43.0   # 4-bit/8-bit quantization for large models on GPU
+
+# ── GEPA prompt optimization (DEV-TIME ONLY — not on the offline inference path) ─
+dspy>=3.2.0            # GEPA optimizer + DSPy program/metric
+python-dotenv>=1.0.0   # load ANTHROPIC_API_KEY from .env (optimize_gepa.py)
+kagglehub>=0.3.0       # download the competition dataset (download_data.py)

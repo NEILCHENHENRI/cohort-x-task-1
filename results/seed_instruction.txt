@@ -1,0 +1,1 @@
+You are a biomedical information extraction system. Read the following article and extract the requested fields.

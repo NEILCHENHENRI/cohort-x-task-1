@@ -10,10 +10,11 @@ Implements the three competition metrics:
                              (noun sim + verb sim + CWO, λ=0.6)
 
 Usage:
-  from evaluate import evaluate_fast, evaluate, score_row
+  from common.evaluate import evaluate_fast, evaluate, score_row
 """
 
 import re
+from functools import lru_cache
 
 import numpy as np
 import pandas as pd
@@ -21,7 +22,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from tqdm import tqdm
 from word2number import w2n
 
-from config import ALPHA, BIOBERT_EVAL_NAME, LAM, STOP_VERBS, WEIGHTS
+from common.config import ALPHA, BIOBERT_EVAL_NAME, LAM, STOP_VERBS, WEIGHTS
 
 # ---------------------------------------------------------------------------
 # Lazy model loading — only instantiated when first used
@@ -99,10 +100,25 @@ def semantic_similarity(pred: str, ref: str) -> float:
 # 3. FM3S
 # ---------------------------------------------------------------------------
 
+_ic = None
+
+
+def _get_ic():
+    # Cache the Brown IC corpus — loading it per _lin_sim call dominated runtime.
+    global _ic
+    if _ic is None:
+        from nltk.corpus import wordnet_ic
+        _ic = wordnet_ic.ic("ic-brown.dat")
+    return _ic
+
+
+@lru_cache(maxsize=200_000)
 def _lin_sim(w1: str, w2: str, pos: str) -> float:
+    # Memoized: identical (w1, w2, pos) recurs constantly across rows. Pure
+    # speedup — output is unchanged.
     try:
-        from nltk.corpus import wordnet as wn, wordnet_ic
-        ic     = wordnet_ic.ic("ic-brown.dat")
+        from nltk.corpus import wordnet as wn
+        ic     = _get_ic()
         wn_pos = wn.NOUN if pos == "NOUN" else wn.VERB
         s1     = wn.synsets(w1, pos=wn_pos)
         s2     = wn.synsets(w2, pos=wn_pos)

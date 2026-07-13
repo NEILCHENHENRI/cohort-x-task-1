@@ -4,12 +4,13 @@ Parses PMC NXML (JATS) files into structured dicts.
 """
 
 from __future__ import annotations
-import logging
 
+import logging
 import re
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Optional
+
 from lxml import etree
 
 log = logging.getLogger(__name__)
@@ -48,9 +49,6 @@ class NXMLParser:
         return sections
 
 
-
-
-# New
 @dataclass
 class BlockNode:
     block_id: str
@@ -126,14 +124,6 @@ class HierarchicalNXMLParser:
                 self._parse_section(sec, parent_id=None, parent_path=[])
 
         self._link_global_blocks()
-
-        # return {
-        #     "doc_id": doc_id,
-        #     "sections": {sid: asdict(sec) for sid, sec in self.sections.items()},
-        #     "blocks": {bid: asdict(block) for bid, block in self.blocks.items()},
-        #     "block_order": self.block_order,
-        #     "flat_blocks": [asdict(self.blocks[bid]) for bid in self.block_order],
-        # }
 
         return {
             "doc_id": doc_id,

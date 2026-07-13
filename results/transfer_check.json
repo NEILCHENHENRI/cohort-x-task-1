@@ -1,0 +1,17 @@
+{
+  "split": "holdout",
+  "n": 60,
+  "model": "qwen2.5:1.5b",
+  "instruction": "results/optimized_instruction.txt (GEPA-optimized prompt, shipped)",
+  "instruction_sha8": "7112c3c9",
+  "source": "offline predict_ollama + optimized_instruction.txt",
+  "mean_scores": {
+    "sex": 1.0,
+    "minimum_age": 0.05,
+    "maximum_age": 0.4833,
+    "conditions": 0.5504,
+    "study_type": 0.8799,
+    "eligibility_criteria": 0.8223,
+    "overall": 0.685
+  }
+}
