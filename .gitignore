@@ -24,6 +24,7 @@ __pycache__/
 
 local.py
 quick_vis.ipynb
+local*.ipynb
 
 final_retrieval_classifier/
 for_comparison_only/
