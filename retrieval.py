@@ -625,72 +625,14 @@ UNIFIED_QUERIES = [
     ),
 ]
 
-GENEROUS_RETRIEVAL_CONFIG = {
-    "score_floor_ratio": 0.75,
-    "min_char_fraction": 0.15,  # retain at least 15% of article text
-    "max_char_fraction": 0.30,  # retain at most 30% of article text
+# UNIFIED_RETRIEVAL_CONFIG = {
+#     "char_fraction": 0.30,
+# }
+
+UNIFIED_RETRIEVAL_CONFIG = {
+    "char_fraction": 0.30,
+    "min_blocks": 8,
 }
-
-
-def unified_metadata_multiplier(section_path: List[str]) -> float:
-    """
-    Conservative unified prior for current-study cohort evidence.
-    Uses existing priors, but avoids field-specific overcommitment.
-    """
-    path = normalize_path(section_path)
-
-    positive_terms = {
-        "study design": 1.08,
-        "methods": 1.06,
-        "participants": 1.08,
-        "participant": 1.08,
-        "patients": 1.05,
-        "patient": 1.05,
-        "study population": 1.08,
-        "population": 1.04,
-        "eligibility": 1.10,
-        "inclusion": 1.10,
-        "exclusion": 1.10,
-        "demographics": 1.08,
-        "case presentation": 1.06,
-    }
-
-    negative_terms = {
-        "references": 0.85,
-        "acknowledgements": 0.90,
-        "funding": 0.90,
-        "competing interests": 0.90,
-        "author contributions": 0.90,
-        "data availability": 0.92,
-        "ethics": 0.95,
-        "supplementary": 0.95,
-        "appendix": 0.95,
-        "discussion": 0.88,
-        "conclusion": 0.90,
-        "background": 0.92,
-        "introduction": 0.92,
-        "literature review": 0.85,
-        "previous studies": 0.85,
-    }
-
-    positive = max(
-        [1.0] + [w for term, w in positive_terms.items() if term in path]
-    )
-    negative = min(
-        [1.0] + [w for term, w in negative_terms.items() if term in path]
-    )
-
-    return positive * negative
-
-
-def compute_candidate_k(num_blocks: int) -> int:
-    cfg = GENEROUS_RETRIEVAL_CONFIG
-
-    return min(
-        max(cfg["min_k"], int(cfg["ratio"] * num_blocks)),
-        cfg["max_k"],
-        num_blocks,
-    )
 
 
 def retrieve_unified_candidates(
@@ -700,14 +642,16 @@ def retrieve_unified_candidates(
     model: SentenceTransformer,
 ) -> List[Dict[str, Any]]:
     """
-    One broad high-recall retrieval pass per paper.
+    Retrieve the highest-scoring blocks until they cover at least a fixed
+    fraction of the article's usable block characters.
 
-    Selection logic:
-    1. Score every block by semantic similarity × metadata prior.
-    2. Keep blocks with score >= score_floor_ratio × top_score.
-    3. If retained text is less than min_char_fraction of article text,
-       continue adding blocks by score until the floor is reached.
-    4. Never exceed max_char_fraction of article text.
+    Selection procedure:
+    1. Score every non-empty block by maximum semantic similarity across
+       the unified query prototypes.
+    2. Rank blocks from highest to lowest score.
+    3. Add complete blocks until their combined text reaches at least
+       char_fraction of the article's usable block text.
+    4. Restore selected blocks to their original document order.
     """
     if len(blocks) == 0:
         return []
@@ -718,79 +662,112 @@ def retrieve_unified_candidates(
         show_progress_bar=False,
     ).astype(np.float32)
 
-    sims = np.max(query_embeddings @ block_embeddings.T, axis=0)
+    # One relevance score per block: best similarity across query prototypes.
+    similarities = np.max(
+        query_embeddings @ block_embeddings.T,
+        axis=0,
+    )
 
     candidates = []
-
     total_chars = 0
 
-    for i, block in enumerate(blocks):
+    for index, block in enumerate(blocks):
         text = clean_text(block.get("text", ""))
-        total_chars += len(text)
 
-        section_path = get_section_path(block, doc)
-        multiplier = unified_metadata_multiplier(section_path)
-        final_score = float(sims[i] * multiplier)
+        # Empty blocks should not consume the retrieval budget.
+        if not text:
+            continue
+
+        char_count = len(text)
+        total_chars += char_count
+
+        section_path = get_section_path(
+            block,
+            doc,
+        )
+
+        similarity = float(
+            similarities[index]
+        )
 
         candidates.append(
             {
-                "doc_id": doc.get("doc_id", ""),
-                "block_id": block_id(block, i),
-                "block_index": i,
-                "similarity": float(sims[i]),
-                "metadata_multiplier": float(multiplier),
-                "final_score": final_score,
+                "doc_id": doc.get(
+                    "doc_id",
+                    "",
+                ),
+                "block_id": block_id(
+                    block,
+                    index,
+                ),
+                "block_index": index,
+                "similarity": similarity,
+
+                # Retained for compatibility with existing diagnostics.
+                "metadata_multiplier": 1.0,
+                "final_score": similarity,
+
                 "section_path": section_path,
-                "block_type": block.get("block_type") or block.get("type") or "text",
+                "block_type": (
+                    block.get("block_type")
+                    or block.get("type")
+                    or "text"
+                ),
                 "text": text,
-                "char_count": len(text),
+                "char_count": char_count,
             }
         )
-
-    candidates.sort(key=lambda x: x["final_score"], reverse=True)
 
     if not candidates or total_chars == 0:
         return []
 
-    top_score = candidates[0]["final_score"]
-    score_floor = GENEROUS_RETRIEVAL_CONFIG["score_floor_ratio"] * top_score
+    candidates.sort(
+        key=lambda candidate: candidate[
+            "final_score"
+        ],
+        reverse=True,
+    )
 
-    min_chars = int(GENEROUS_RETRIEVAL_CONFIG["min_char_fraction"] * total_chars)
-    max_chars = int(GENEROUS_RETRIEVAL_CONFIG["max_char_fraction"] * total_chars)
+    target_chars = max(
+        1,
+        int(
+            np.ceil(
+                UNIFIED_RETRIEVAL_CONFIG[
+                    "char_fraction"
+                ]
+                * total_chars
+            )
+        ),
+    )
 
     selected = []
-    selected_ids = set()
     selected_chars = 0
 
-    # Pass 1: keep all blocks above score floor, up to max char budget.
-    for cand in candidates:
-        if cand["final_score"] < score_floor:
-            continue
+    # for candidate in candidates:
+    #     selected.append(candidate)
+    #     selected_chars += candidate[
+    #         "char_count"
+    #     ]
 
-        if selected_chars + cand["char_count"] > max_chars:
+    #     if selected_chars >= target_chars:
+    #         break
+
+    for candidate in candidates:
+        selected.append(candidate)
+        selected_chars += candidate["char_count"]
+
+        if (
+            selected_chars >= target_chars
+            and len(selected) >= UNIFIED_RETRIEVAL_CONFIG["min_blocks"]
+        ):
             break
 
-        selected.append(cand)
-        selected_ids.add(cand["block_id"])
-        selected_chars += cand["char_count"]
-
-    # Pass 2: if not enough coverage, add next-best blocks until 15%.
-    if selected_chars < min_chars:
-        for cand in candidates:
-            if cand["block_id"] in selected_ids:
-                continue
-
-            if selected_chars + cand["char_count"] > max_chars and selected:
-                break
-
-            selected.append(cand)
-            selected_ids.add(cand["block_id"])
-            selected_chars += cand["char_count"]
-
-            if selected_chars >= min_chars:
-                break
-
-    selected.sort(key=lambda x: x["final_score"], reverse=True)
+    # Preserve article order for downstream inspection and context building.
+    selected.sort(
+        key=lambda candidate: candidate[
+            "block_index"
+        ]
+    )
 
     return selected
 
@@ -818,104 +795,70 @@ def retrieve_unified_for_doc(
     total_chars = sum(len(clean_text(b.get("text", ""))) for b in blocks)
     selected_chars = sum(c.get("char_count", 0) for c in candidates)
 
-    top_score = candidates[0]["final_score"] if candidates else 0.0
-    score_floor = GENEROUS_RETRIEVAL_CONFIG["score_floor_ratio"] * top_score
+    scores = [
+        candidate["final_score"]
+        for candidate in candidates
+    ]
+
+    top_score = max(scores) if scores else 0.0
+    lowest_selected_score = (
+        min(scores)
+        if scores
+        else 0.0
+    )
+
+    target_chars = int(
+        np.ceil(
+            UNIFIED_RETRIEVAL_CONFIG[
+                "char_fraction"
+            ]
+            * total_chars
+        )
+    )
 
     output = {
-        "doc_id": doc.get("doc_id", parsed_path.stem),
-        "title": doc.get("title", ""),
-        "abstract": doc.get("abstract", ""),
-        "keywords": doc.get("keywords", []),
+        "doc_id": doc.get(
+            "doc_id",
+            parsed_path.stem,
+        ),
+        "title": doc.get(
+            "title",
+            "",
+        ),
+        "abstract": doc.get(
+            "abstract",
+            "",
+        ),
+        "keywords": doc.get(
+            "keywords",
+            [],
+        ),
         "num_blocks": len(blocks),
         "num_candidates": len(candidates),
         "total_chars": total_chars,
+        "target_chars": target_chars,
         "selected_chars": selected_chars,
-        "selected_char_fraction": selected_chars / total_chars if total_chars else 0.0,
-        "retrieval_config": GENEROUS_RETRIEVAL_CONFIG,
+        "selected_char_fraction": (
+            selected_chars / total_chars
+            if total_chars
+            else 0.0
+        ),
+        "retrieval_config": (
+            UNIFIED_RETRIEVAL_CONFIG
+        ),
         "queries": UNIFIED_QUERIES,
         "candidates": candidates,
         "top_score": top_score,
-        "score_floor": score_floor,
+        "lowest_selected_score": (
+            lowest_selected_score
+        ),
     }
-
-    # output = {
-    #     "doc_id": doc.get("doc_id", parsed_path.stem),
-    #     "title": doc.get("title", ""),
-    #     "abstract": doc.get("abstract", ""),
-    #     "keywords": doc.get("keywords", []),
-    #     "num_blocks": len(blocks),
-    #     "num_candidates": len(candidates),
-    #     "retrieval_config": GENEROUS_RETRIEVAL_CONFIG,
-    #     "queries": UNIFIED_QUERIES,
-    #     "candidates": candidates,
-    # }
 
     if len(blocks) == 0:
         output["warning"] = "No retrievable blocks found."
 
     return output, cache_hit
 
-
-# def export_unified_candidates(
-#     parsed_dir: Path,
-#     output_dir: Path,
-#     embedding_cache_dir: Path,
-#     overwrite: bool = False,
-# ):
-#     """
-#     Export one generous candidate JSON per paper.
-
-#     These files are intended for the next evidence-labeling stage.
-#     """
-#     output_dir.mkdir(parents=True, exist_ok=True)
-#     embedding_cache_dir.mkdir(parents=True, exist_ok=True)
-
-#     model = SentenceTransformer(EMBEDDING_MODEL)
-
-#     parsed_files = sorted(parsed_dir.glob("*.json"))
-
-#     print(f"Found {len(parsed_files)} parsed JSON files.")
-
-#     cache_hits = 0
-#     cache_misses = 0
-
-#     for parsed_path in tqdm(parsed_files, desc="Unified generous retrieval"):
-#         out_path = output_dir / f"{parsed_path.stem}.json"
-
-#         if out_path.exists() and not overwrite:
-#             continue
-
-#         try:
-#             with open(parsed_path, encoding="utf-8") as f:
-#                 doc = json.load(f)
-
-#             retrieved, cache_hit = retrieve_unified_for_doc(
-#                 doc=doc,
-#                 parsed_path=parsed_path,
-#                 model=model,
-#                 embedding_cache_dir=embedding_cache_dir,
-#             )
-
-#             if cache_hit:
-#                 cache_hits += 1
-#             else:
-#                 cache_misses += 1
-
-#             with open(out_path, "w", encoding="utf-8") as f:
-#                 json.dump(retrieved, f, ensure_ascii=False, indent=2)
-
-#         except Exception as e:
-#             print(f"Failed {parsed_path.name}: {e}")
-
-#     print("\nEmbedding cache for processed files")
-#     print(f"  Hits    : {cache_hits}")
-#     print(f"  Misses  : {cache_misses}")
-
-#     total = cache_hits + cache_misses
-#     if total:
-#         print(f"  Hit rate: {cache_hits / total:.1%}")
-
-#     print(f"\nFinished. Unified candidates written to:\n{output_dir}")
 
 def export_unified_candidates(
     parsed_dir: Path,
@@ -963,7 +906,14 @@ def export_unified_candidates(
                     "selected_chars": existing.get("selected_chars", 0),
                     "selected_char_fraction": existing.get("selected_char_fraction", 0.0),
                     "top_score": existing.get("top_score", 0.0),
-                    "score_floor": existing.get("score_floor", 0.0),
+                    "target_chars": existing.get(
+                        "target_chars",
+                        0,
+                    ),
+                    "lowest_selected_score": existing.get(
+                        "lowest_selected_score",
+                        0.0,
+                    ),
                     "from_existing_output": True,
                 })
             except Exception:
@@ -995,7 +945,14 @@ def export_unified_candidates(
                 "selected_chars": retrieved.get("selected_chars", 0),
                 "selected_char_fraction": retrieved.get("selected_char_fraction", 0.0),
                 "top_score": retrieved.get("top_score", 0.0),
-                "score_floor": retrieved.get("score_floor", 0.0),
+                "target_chars": retrieved.get(
+                    "target_chars",
+                    0,
+                ),
+                "lowest_selected_score": retrieved.get(
+                    "lowest_selected_score",
+                    0.0,
+                ),
                 "from_existing_output": False,
             })
 

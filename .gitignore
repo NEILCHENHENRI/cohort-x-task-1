@@ -24,3 +24,7 @@ __pycache__/
 
 local.py
 quick_vis.ipynb
+
+final_retrieval_classifier/
+for_comparison_only/
+sonnet_run/
